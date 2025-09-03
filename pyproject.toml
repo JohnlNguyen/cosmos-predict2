@@ -32,7 +32,7 @@ dependencies = [
   "better-profanity==0.7.0",
   "boto3==1.35.99",
   "decord==0.6.0",
-  "diffusers==0.33.1",
+  "diffusers>=0.34.0",
   "einops==0.8.1",
   "ftfy==6.3.1",
   "fvcore==0.1.5.post20221221",
@@ -68,11 +68,12 @@ dependencies = [
   "transformers==4.51.3",
   "triton==3.2.0",
   "webdataset==0.2.111",
+  "flash-attn==2.7.0",
 ]
 
 [project.optional-dependencies]
 cu126 = [
-  "flash-attn==2.6.3",
+  "flash-attn==2.7.0",
   "natten==0.21.0",
   "torch==2.6.0",
   "torchvision==0.21.0",

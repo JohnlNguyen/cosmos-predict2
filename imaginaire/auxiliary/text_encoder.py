@@ -22,13 +22,25 @@ import attrs
 import torch
 import transformers
 from torch import nn
-from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict, set_model_state_dict
+from torch.distributed.checkpoint.state_dict import (
+    StateDictOptions,
+    get_model_state_dict,
+    set_model_state_dict,
+)
 from torch.distributed.checkpoint.stateful import Stateful
 from transformers import T5EncoderModel, T5TokenizerFast
 from typing_extensions import Self, override
 
-from imaginaire.configs.reason1.model_config_qwen import QwenModelConfig, QwenVisionConfig
-from imaginaire.constants import COSMOS_REASON1_PRIVATE_CHECKPOINT, T5_MODEL_DIR, TEXT_ENCODER_CLASS, TextEncoderClass
+from imaginaire.configs.reason1.model_config_qwen import (
+    QwenModelConfig,
+    QwenVisionConfig,
+)
+from imaginaire.constants import (
+    COSMOS_REASON1_PRIVATE_CHECKPOINT,
+    T5_MODEL_DIR,
+    TEXT_ENCODER_CLASS,
+    TextEncoderClass,
+)
 from imaginaire.lazy_config import LazyCall as L
 from imaginaire.lazy_config import instantiate as lazy_instantiate
 from imaginaire.models.vlm_qwen import build_tokenizer
@@ -47,7 +59,9 @@ class ModelWrapper(Stateful):
         self.model = [model] if isinstance(model, nn.Module) else model
 
     def state_dict(self) -> dict[str, Any]:
-        return {k: v for sd in map(get_model_state_dict, self.model) for k, v in sd.items()}
+        return {
+            k: v for sd in map(get_model_state_dict, self.model) for k, v in sd.items()
+        }
 
     def load_state_dict(self, state_dict: dict[str, Any]) -> None:
         func = functools.partial(
@@ -61,7 +75,9 @@ class ModelWrapper(Stateful):
 class EmbeddingConcatStrategy(str, Enum):
     FULL_CONCAT = "full_concat"  # Concatenate embeddings all layers
     MEAN_POOLING = "mean_pooling"  # Average pool embeddings all layers
-    POOL_EVERY_N_LAYERS_AND_CONCAT = "pool_every_n_layers_and_concat"  # Pool every n layers and concatenatenate
+    POOL_EVERY_N_LAYERS_AND_CONCAT = (
+        "pool_every_n_layers_and_concat"  # Pool every n layers and concatenatenate
+    )
 
     def __str__(self) -> str:
         return self.value
@@ -69,7 +85,9 @@ class EmbeddingConcatStrategy(str, Enum):
 
 class CosmosTextEncoderBase(torch.nn.Module, abc.ABC):
     @overload
-    def encode_prompts(self, prompts: str, max_length: int, return_mask: Literal[False]) -> torch.Tensor: ...
+    def encode_prompts(
+        self, prompts: str, max_length: int, return_mask: Literal[False]
+    ) -> torch.Tensor: ...
     @overload
     def encode_prompts(
         self, prompts: list[str], max_length: int, return_mask: Literal[True]
@@ -137,7 +155,10 @@ class CosmosReason1TextEncoderConfig:
 
 class CosmosReason1TextEncoder(CosmosTextEncoderBase):
     def __init__(
-        self, config: CosmosReason1TextEncoderConfig, device: str = "cuda", torch_dtype: torch.dtype | None = None
+        self,
+        config: CosmosReason1TextEncoderConfig,
+        device: str = "cuda",
+        torch_dtype: torch.dtype | None = None,
     ):
         super().__init__()
         self.config = config
@@ -164,7 +185,9 @@ class CosmosReason1TextEncoder(CosmosTextEncoderBase):
         _model_wrapper = ModelWrapper(model_parts)
         state_dict = _model_wrapper.state_dict()
         # remove _extra_state
-        state_dict = {k: v for k, v in state_dict.items() if not k.endswith("._extra_state")}
+        state_dict = {
+            k: v for k, v in state_dict.items() if not k.endswith("._extra_state")
+        }
 
         # remap keys if needed
         if model_ckpt_key_map:
@@ -195,7 +218,9 @@ class CosmosReason1TextEncoder(CosmosTextEncoderBase):
         Returns:
         torch.tensor: The normalized tensor
         """
-        return (tensor - tensor.mean(dim=-1, keepdim=True)) / (tensor.std(dim=-1, keepdim=True) + 1e-8)
+        return (tensor - tensor.mean(dim=-1, keepdim=True)) / (
+            tensor.std(dim=-1, keepdim=True) + 1e-8
+        )
 
     def compute_text_embeddings_online(self, prompts: list[str]) -> torch.Tensor:
         """
@@ -264,13 +289,19 @@ class CosmosReason1TextEncoder(CosmosTextEncoderBase):
             normalized_hidden_states.append(normalized_state)
 
         text_embeddings = None
-        if self.config.embedding_concat_strategy == str(EmbeddingConcatStrategy.FULL_CONCAT):
+        if self.config.embedding_concat_strategy == str(
+            EmbeddingConcatStrategy.FULL_CONCAT
+        ):
             text_embeddings = torch.cat(normalized_hidden_states, dim=-1)
-        elif self.config.embedding_concat_strategy == str(EmbeddingConcatStrategy.MEAN_POOLING):
+        elif self.config.embedding_concat_strategy == str(
+            EmbeddingConcatStrategy.MEAN_POOLING
+        ):
             # Stack the normalized hidden states and calculate the mean
             text_embeddings = torch.stack(normalized_hidden_states)
             text_embeddings = text_embeddings.mean(dim=0)
-        elif self.config.embedding_concat_strategy == str(EmbeddingConcatStrategy.POOL_EVERY_N_LAYERS_AND_CONCAT):
+        elif self.config.embedding_concat_strategy == str(
+            EmbeddingConcatStrategy.POOL_EVERY_N_LAYERS_AND_CONCAT
+        ):
             # Split the l
             n_layers_per_group = self.config.n_layers_per_group
             text_embeddings = []
@@ -281,18 +312,24 @@ class CosmosReason1TextEncoder(CosmosTextEncoderBase):
                 text_embeddings.append(group_embedding)
             text_embeddings = torch.cat(text_embeddings, dim=-1)
         else:
-            raise ValueError(f"Invalid embedding_concat_strategy: {self.config.embedding_concat_strategy}")
+            raise ValueError(
+                f"Invalid embedding_concat_strategy: {self.config.embedding_concat_strategy}"
+            )
 
         return text_embeddings
 
     @override
-    def encode_prompts(self, prompts: str | list[str], max_length: int = 512, return_mask: bool = False):
+    def encode_prompts(
+        self, prompts: str | list[str], max_length: int = 512, return_mask: bool = False
+    ):
         if isinstance(prompts, str):
             prompts = [prompts]
         if not prompts:
             raise ValueError("The input prompt list is empty.")
         if return_mask:
-            raise NotImplementedError("return_mask is not supported for CosmosReason1TextEncoder")
+            raise NotImplementedError(
+                "return_mask is not supported for CosmosReason1TextEncoder"
+            )
         return self.compute_text_embeddings_online(prompts)
 
 
@@ -323,8 +360,12 @@ class CosmosT5TextEncoder(CosmosTextEncoderBase):
         super().__init__()
         self.config = config
         self.device = device
-        self.tokenizer = T5TokenizerFast.from_pretrained(self.config.ckpt_path, torch_dtype=torch_dtype)
-        self.text_encoder = T5EncoderModel.from_pretrained(self.config.ckpt_path, torch_dtype=torch_dtype).to(device)
+        self.tokenizer = T5TokenizerFast.from_pretrained(
+            self.config.ckpt_path, torch_dtype=torch_dtype
+        )
+        self.text_encoder = T5EncoderModel.from_pretrained(
+            self.config.ckpt_path, torch_dtype=torch_dtype
+        ).to(device)
         self.text_encoder.eval()
 
         log.info("T5 Text encoder model instantiated")
@@ -335,7 +376,9 @@ class CosmosT5TextEncoder(CosmosTextEncoderBase):
 
     @override
     @torch.inference_mode()
-    def encode_prompts(self, prompts: str | list[str], max_length: int = 512, return_mask: bool = False):
+    def encode_prompts(
+        self, prompts: str | list[str], max_length: int = 512, return_mask: bool = False
+    ):
         if isinstance(prompts, str):
             prompts = [prompts]
         if not prompts:
@@ -370,15 +413,21 @@ class CosmosT5TextEncoder(CosmosTextEncoderBase):
 @attrs.define(slots=False)
 class CosmosTextEncoderConfig:
     text_encoder_class: TextEncoderClass = TEXT_ENCODER_CLASS
-    cosmos_reason1_text_encoder: CosmosReason1TextEncoderConfig = attrs.field(factory=CosmosReason1TextEncoderConfig)
-    cosmos_t5_text_encoder: CosmosT5TextEncoderConfig = attrs.field(factory=CosmosT5TextEncoderConfig)
+    cosmos_reason1_text_encoder: CosmosReason1TextEncoderConfig = attrs.field(
+        factory=CosmosReason1TextEncoderConfig
+    )
+    cosmos_t5_text_encoder: CosmosT5TextEncoderConfig = attrs.field(
+        factory=CosmosT5TextEncoderConfig
+    )
 
 
 CosmosTextEncoder: TypeAlias = CosmosReason1TextEncoder | CosmosT5TextEncoder
 
 
 def get_cosmos_text_encoder(
-    config: CosmosTextEncoderConfig, device: str = "cuda", torch_dtype: torch.dtype | None = None
+    config: CosmosTextEncoderConfig,
+    device: str = "cuda",
+    torch_dtype: torch.dtype | None = None,
 ) -> CosmosTextEncoder | None:
     """Create a text encoder from a config.
 
@@ -394,10 +443,16 @@ def get_cosmos_text_encoder(
     if config.text_encoder_class == TextEncoderClass.COSMOS_REASON1:
         if not config.cosmos_reason1_text_encoder.ckpt_path:
             return None
-        return CosmosReason1TextEncoder(config=config.cosmos_reason1_text_encoder, device=device)
+        return CosmosReason1TextEncoder(
+            config=config.cosmos_reason1_text_encoder, device=device
+        )
     elif config.text_encoder_class == TextEncoderClass.T5:
         if not config.cosmos_t5_text_encoder.ckpt_path:
             return None
-        return CosmosT5TextEncoder(config=config.cosmos_t5_text_encoder, device=device, torch_dtype=torch_dtype)
+        return CosmosT5TextEncoder(
+            config=config.cosmos_t5_text_encoder, device=device, torch_dtype=torch_dtype
+        )
     else:
-        raise ValueError(f"Invalid text encoder config type: {config.text_encoder_class}")
+        raise ValueError(
+            f"Invalid text encoder config type: {config.text_encoder_class}"
+        )

@@ -30,7 +30,9 @@ class TextEncoderClass(str, enum.Enum):
 
 
 _parser = argparse.ArgumentParser(description=__doc__)
-_parser.add_argument("--checkpoints", default="checkpoints", help="Path to the checkpoints directory")
+_parser.add_argument(
+    "--checkpoints", default="", help="Path to the checkpoints directory"
+)
 _parser.add_argument(
     "--text_encoder",
     default=TextEncoderClass.T5,
@@ -47,9 +49,9 @@ log.debug(f"Cosmos Predict2 args: {_args}")
 TEXT_ENCODER_CLASS: TextEncoderClass = _args.text_encoder
 
 # Checkpoints
-CHECKPOINTS_DIR = _args.checkpoints
+CHECKPOINTS_DIR = ""
 
-T5_MODEL_DIR = f"{CHECKPOINTS_DIR}/google-t5/t5-11b"
+T5_MODEL_DIR = "google-t5/t5-11b"
 
 LLAMA_GUARD3_MODEL_DIR = f"{CHECKPOINTS_DIR}/meta-llama/Llama-Guard-3-8B"
 
@@ -58,7 +60,9 @@ COSMOS_GUARDRAIL1_MODEL_DIR = f"{CHECKPOINTS_DIR}/nvidia/Cosmos-Guardrail1"
 COSMOS_REASON1_MODEL_DIR = f"{CHECKPOINTS_DIR}/nvidia/Cosmos-Reason1-7B"
 _COSMOS_REASON1_PRIVATE_MODEL_DIR = f"{CHECKPOINTS_DIR}/nvidia/Cosmos-Reason1-Private"
 COSMOS_REASON1_PRIVATE_TOKENIZER = f"{_COSMOS_REASON1_PRIVATE_MODEL_DIR}/tokenizer"
-COSMOS_REASON1_PRIVATE_CHECKPOINT = f"{_COSMOS_REASON1_PRIVATE_MODEL_DIR}/reason1_internal_real.pt"
+COSMOS_REASON1_PRIVATE_CHECKPOINT = (
+    f"{_COSMOS_REASON1_PRIVATE_MODEL_DIR}/reason1_internal_real.pt"
+)
 
 
 CosmosPredict2Text2ImageModelSize = Literal["0.6B", "2B", "14B"]
@@ -66,7 +70,9 @@ CosmosPredict2Text2ImageModelType = Literal["Text2Image"]
 
 
 def _get_cosmos_predict2_text2image_model_dir(
-    *, model_size: CosmosPredict2Text2ImageModelSize, model_type: CosmosPredict2Text2ImageModelType = "Text2Image"
+    *,
+    model_size: CosmosPredict2Text2ImageModelSize,
+    model_type: CosmosPredict2Text2ImageModelType = "Text2Image",
 ) -> str:
     return f"{CHECKPOINTS_DIR}/nvidia/Cosmos-Predict2-{model_size}-{model_type}"
 
@@ -77,7 +83,9 @@ def get_cosmos_predict2_text2image_tokenizer(
     model_type: CosmosPredict2Text2ImageModelType = "Text2Image",
     fast_tokenizer: bool = False,
 ) -> str:
-    model_dir = _get_cosmos_predict2_text2image_model_dir(model_size=model_size, model_type=model_type)
+    model_dir = _get_cosmos_predict2_text2image_model_dir(
+        model_size=model_size, model_type=model_type
+    )
     suffix = ""
     if fast_tokenizer:
         suffix += "_fast"
@@ -90,7 +98,9 @@ def get_cosmos_predict2_text2image_checkpoint(
     model_type: CosmosPredict2Text2ImageModelType = "Text2Image",
     fast_tokenizer: bool = False,
 ) -> str:
-    model_dir = _get_cosmos_predict2_text2image_model_dir(model_size=model_size, model_type=model_type)
+    model_dir = _get_cosmos_predict2_text2image_model_dir(
+        model_size=model_size, model_type=model_type
+    )
     suffix = ""
     if fast_tokenizer:
         suffix += "_fast_tokenizer"
@@ -117,7 +127,9 @@ def get_cosmos_predict2_video2world_tokenizer(
     model_size: CosmosPredict2Video2WorldModelSize,
     model_type: CosmosPredict2Video2WorldModelType = "Video2World",
 ) -> str:
-    model_dir = _get_cosmos_predict2_video2world_model_dir(model_size=model_size, model_type=model_type)
+    model_dir = _get_cosmos_predict2_video2world_model_dir(
+        model_size=model_size, model_type=model_type
+    )
     return f"{model_dir}/tokenizer/tokenizer.pth"
 
 
@@ -130,11 +142,15 @@ def get_cosmos_predict2_video2world_checkpoint(
     aspect_ratio: CosmosPredict2Video2WorldAspectRatio = "16:9",
     natten: bool = False,
 ) -> str:
-    model_dir = _get_cosmos_predict2_video2world_model_dir(model_size=model_size, model_type=model_type)
+    model_dir = _get_cosmos_predict2_video2world_model_dir(
+        model_size=model_size, model_type=model_type
+    )
     suffix = ""
     if natten:
         if aspect_ratio != "16:9":
-            raise NotImplementedError("Cosmos-Predict2 + NATTEN only supports 16:9 aspect ratio at the moment.")
+            raise NotImplementedError(
+                "Cosmos-Predict2 + NATTEN only supports 16:9 aspect ratio at the moment."
+            )
         suffix += "-natten"
     return f"{model_dir}/model-{resolution}p-{fps}fps{suffix}.pt"
 
@@ -154,7 +170,9 @@ def get_cosmos_predict2_multiview_checkpoint(
     resolution: CosmosPredict2MultiviewResolution = "720",
     fps: CosmosPredict2MultiviewFPS = 16,
 ) -> str:
-    model_dir = _get_cosmos_predict2_video2world_model_dir(model_size=model_size, model_type="Multiview")
+    model_dir = _get_cosmos_predict2_video2world_model_dir(
+        model_size=model_size, model_type="Multiview"
+    )
     return f"{model_dir}/model-{resolution}p-{fps}fps-{views}views-{frames}frames.pt"
 
 
@@ -182,9 +200,13 @@ CosmosPredict2Gr00tResolution = Literal["480"]
 CosmosPredict2Gr00tFPS = Literal[16]
 CosmosPredict2Gr00tAspectRatio = CosmosPredict2Video2WorldAspectRatio
 CosmosPredict2Gr00tVariant = Literal["gr1", "droid"]
-CosmosPredict2Gr00tModelType = Literal["Sample-GR00T-Dreams-GR1", "Sample-GR00T-Dreams-DROID"]
+CosmosPredict2Gr00tModelType = Literal[
+    "Sample-GR00T-Dreams-GR1", "Sample-GR00T-Dreams-DROID"
+]
 
-_GR00T_MODEL_TYPE_MAPPING: dict[CosmosPredict2Gr00tVariant, CosmosPredict2Gr00tModelType] = {
+_GR00T_MODEL_TYPE_MAPPING: dict[
+    CosmosPredict2Gr00tVariant, CosmosPredict2Gr00tModelType
+] = {
     "gr1": "Sample-GR00T-Dreams-GR1",
     "droid": "Sample-GR00T-Dreams-DROID",
 }
